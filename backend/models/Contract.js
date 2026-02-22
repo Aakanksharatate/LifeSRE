@@ -9,6 +9,8 @@ const contractSchema = new mongoose.Schema(
       ref: "User",
     },
     vendor: String,
+    senderEmail: String,
+    threadId: String,
     renewalDate: Date,
     renewalAmount: Number,
     contractType: String,
@@ -25,16 +27,17 @@ const contractSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
-
     status: {
       type: String,
       enum: ["ACTIVE", "SWITCHED", "ARCHIVED"],
       default: "ACTIVE",
     },
-
     rawText: String,
+    renewalReminderSent: { type: Boolean, default: false },
+    riskAlertSent: { type: Boolean, default: false },
+    savingsAlertSent: { type: Boolean, default: false },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 module.exports = mongoose.model("Contract", contractSchema);

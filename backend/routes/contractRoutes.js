@@ -52,8 +52,12 @@ router.post("/:id/switch", async (req, res) => {
         `;
     }
 
+    const recipient =
+      contract.senderEmail ||
+      `support@${contract.vendor.toLowerCase().replace(/\s/g, "")}.com`;
+
     const message = [
-      `To: support@${contract.vendor.toLowerCase().replace(/\s/g, "")}.com`,
+      `To: ${recipient}`,
       "Subject: Subscription Cancellation Request",
       "",
       emailContent,
@@ -98,7 +102,7 @@ router.post("/:id/switch", async (req, res) => {
     // 7️⃣ WhatsApp notification
     await sendWhatsAppNotification(
       user,
-            `
+      `
       Your ${contract.vendor} contract was switched.
       You saved ₹${potentialSavings}.
       Total savings: ₹${user.savingsTotal}.

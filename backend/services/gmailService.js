@@ -16,12 +16,12 @@ function decodeBase64(encoded) {
 function extractTextFromPayload(payload) {
   if (!payload) return "";
 
-  // Direct plain text
+  // Plain text first priority
   if (payload.mimeType === "text/plain" && payload.body?.data) {
     return decodeBase64(payload.body.data);
   }
 
-  // HTML fallback (strip tags later if needed)
+  // HTML fallback
   if (payload.mimeType === "text/html" && payload.body?.data) {
     return decodeBase64(payload.body.data);
   }
@@ -37,12 +37,12 @@ function extractTextFromPayload(payload) {
   return "";
 }
 
-function extractSubject(payload) {
+function extractHeader(payload, name) {
   const headers = payload.headers || [];
-  const subjectHeader = headers.find(
-    (h) => h.name === "Subject"
+  const header = headers.find(
+    (h) => h.name.toLowerCase() === name.toLowerCase()
   );
-  return subjectHeader ? subjectHeader.value : "Unknown Service";
+  return header ? header.value : null;
 }
 
 const renewalKeywords = [
@@ -77,7 +77,6 @@ async function fetchFullEmails(user) {
     auth: oauth2Client,
   });
 
-  // 🔥 Proper single query (no override)
   const listResponse = await gmail.users.messages.list({
     userId: "me",
     maxResults: 10,
@@ -98,14 +97,26 @@ async function fetchFullEmails(user) {
 
     const payload = message.data.payload;
 
-    const subject = extractSubject(payload);
+    const subject =
+      extractHeader(payload, "Subject") || "Unknown Service";
+
+    const fromRaw = extractHeader(payload, "From") || "";
+
+    // Extract pure email from "Netflix <info@netflix.com>"
+    const emailMatch = fromRaw.match(/<(.+?)>/);
+    const senderEmail = emailMatch
+      ? emailMatch[1]
+      : fromRaw;
+
     const textContent = extractTextFromPayload(payload);
 
     if (isRenewalEmail(textContent)) {
       filteredEmails.push({
         id: msg.id,
+        threadId: message.data.threadId,
         subject,
         text: textContent,
+        senderEmail,   // 🔥 REAL SENDER EMAIL
       });
     }
   }

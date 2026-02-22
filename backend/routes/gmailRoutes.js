@@ -83,6 +83,8 @@ router.get("/fetch/:userId", async (req, res) => {
         vendor: vendorName,
         renewalDate,
         renewalAmount,
+        senderEmail: email.senderEmail,
+        threadId: email.threadId,
         contractType: extracted.contractType || "Unknown",
         cancellationWindow: extracted.cancellationWindow || "Unknown",
         rawText: email.text,
