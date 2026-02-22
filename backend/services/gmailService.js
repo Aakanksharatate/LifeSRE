@@ -55,7 +55,8 @@ async function fetchFullEmails(user) {
 
   const listResponse = await gmail.users.messages.list({
     userId: "me",
-    maxResults: 10,
+    maxResults: 5,
+    q: "newer_than:2d",
     includeSpamTrash: true,
     q: "renew OR charged OR subscription OR expires",
   });

@@ -34,17 +34,34 @@ router.get("/fetch/:userId", async (req, res) => {
     const savedContracts = [];
 
     for (let email of emails) {
-      const extractedRaw = await extractContractDetails(email.text);
+      const extracted = extractContractDetails(email.text, email.subject);
 
-      const extracted =
-        typeof extractedRaw === "string"
-          ? JSON.parse(extractedRaw)
-          : extractedRaw;
+      if (!extracted.vendor || extracted.vendor === "Unknown Vendor") {
+        extracted.vendor = email.subject || "Unknown Service";
+      }
 
       const renewalDate = parseDate(extracted.renewalDate);
       const renewalAmount = parseAmount(extracted.renewalAmount);
+      console.log("Extracted:", extracted);
+      console.log("Parsed date:", renewalDate);
+      console.log("Parsed amount:", renewalAmount);
+
+      if (!renewalDate || renewalAmount === 0) {
+        continue;
+      }
 
       const riskData = calculateRisk(renewalDate, renewalAmount);
+
+      const existing = await Contract.findOne({
+        userId: user._id,
+        vendor: extracted.vendor,
+        renewalDate,
+        renewalAmount,
+      });
+
+      if (existing) {
+        continue;
+      }
 
       const newContract = await Contract.create({
         userId: user._id,
@@ -54,6 +71,7 @@ router.get("/fetch/:userId", async (req, res) => {
         contractType: extracted.contractType || "Unknown",
         cancellationWindow: extracted.cancellationWindow || "Unknown",
         rawText: email.text,
+        status: "ACTIVE",
         ...riskData,
       });
 
