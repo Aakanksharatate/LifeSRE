@@ -73,7 +73,8 @@ function detectVendor(text) {
   if (text.toLowerCase().includes("netflix")) return "Netflix";
   if (text.toLowerCase().includes("amazon")) return "Amazon";
   if (text.toLowerCase().includes("insurance")) return "Insurance Provider";
-  return "Unknown Vendor";
+  if (text.toLowerCase().includes("Driver License")) return "Insurance Provider";
+  return "Subject";
 }
 
 function detectDate(text) {

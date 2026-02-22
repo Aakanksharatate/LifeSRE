@@ -29,10 +29,11 @@ router.get("/fetch/:userId", async (req, res) => {
     }
 
     const emails = await fetchFullEmails(user);
+    console.log("📩 Emails fetched:", emails.length);
 
     const savedContracts = [];
 
-    for (let email of emails.slice(0, 1)) {
+    for (let email of emails) {
       const extractedRaw = await extractContractDetails(email.text);
 
       const extracted =

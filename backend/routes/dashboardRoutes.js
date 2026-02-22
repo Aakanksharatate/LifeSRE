@@ -1,5 +1,3 @@
-// routes/dashboardRoutes.js
-
 const express = require("express");
 const router = express.Router();
 const Contract = require("../models/Contract");
@@ -18,8 +16,10 @@ router.get("/summary/:userId", async (req, res) => {
       status: "ACTIVE",
     });
 
+    // Total contracts
     const totalContracts = contracts.length;
 
+    // Risk breakdown
     const highRisk = contracts.filter(
       (c) => c.riskLevel === "HIGH"
     ).length;
@@ -28,15 +28,20 @@ router.get("/summary/:userId", async (req, res) => {
       (c) => c.riskLevel === "MEDIUM"
     ).length;
 
-    const upcomingRenewals = highRisk + mediumRisk;
+    // ✅ Upcoming renewals = renewals in next 30 days
+    const upcomingRenewals = contracts.filter(
+      (c) => c.daysLeft !== undefined && c.daysLeft <= 30
+    ).length;
 
+    // Total spend
     const estimatedSpend = contracts.reduce(
       (sum, contract) => sum + (contract.renewalAmount || 0),
       0
     );
 
+    // Nearest upcoming renewal
     const nextRenewal = contracts
-      .filter((c) => c.renewalDate)
+      .filter((c) => c.renewalDate && c.daysLeft >= 0)
       .sort((a, b) => new Date(a.renewalDate) - new Date(b.renewalDate))[0];
 
     const user = await User.findById(userId);
