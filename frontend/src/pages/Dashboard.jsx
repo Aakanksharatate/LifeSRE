@@ -55,7 +55,7 @@ function Dashboard() {
   }
   return (
     <div style={{ padding: "40px" }}>
-      <h1>LifeOps Dashboard</h1>
+      <h1>LifeSRE Dashboard</h1>
       {scanning && <p style={{ color: "#007bff" }}>Scanning inbox...</p>}
 
       <div

@@ -6,6 +6,7 @@ const AuditLog = require("../models/AuditLog");
 const { google } = require("googleapis");
 const oauth2Client = require("../config/googleAuth");
 const generateCancellationEmail = require("../services/remediationService");
+const sendWhatsApp = require("../services/whatsappService");
 
 router.post("/:id/switch", async (req, res) => {
   try {
@@ -100,13 +101,12 @@ router.post("/:id/switch", async (req, res) => {
     await user.save();
 
     // 7️⃣ WhatsApp notification
-    await sendWhatsAppNotification(
-      user,
-      `
-      Your ${contract.vendor} contract was switched.
+    await sendWhatsApp(
+      `LifeSRE Update:
+      Your ${contract.vendor} contract was successfully cancelled.
+
       You saved ₹${potentialSavings}.
-      Total savings: ₹${user.savingsTotal}.
-      `,
+      Total savings: ₹${user.savingsTotal}.`
     );
 
     // 8️⃣ Audit log

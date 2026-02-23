@@ -3,7 +3,7 @@ const cron = require("node-cron");
 const Contract = require("../models/Contract");
 
 // Run every minute (testing)
-cron.schedule("* * * * *", async () => {
+cron.schedule("0 * * * *", async () => {
   console.log("Checking subscriptions...");
 
   try {
