@@ -12,7 +12,8 @@ const uploadRoutes = require("./routes/uploadRoutes");
 const dashboardRoutes = require("./routes/dashboardRoutes");
 const contractRoutes = require("./routes/contractRoutes");
 const recommendationRoutes = require("./routes/recommendationRoutes");
-
+const historyRoutes = require("./routes/historyRoutes");
+const subscriptionActions = require("./routes/subscriptionActions");
 
 const app = express();
 
@@ -30,6 +31,8 @@ app.use("/upload", uploadRoutes);
 app.use("/dashboard", dashboardRoutes);
 app.use("/contracts", contractRoutes);
 app.use("/recommendation", recommendationRoutes);
+app.use("/history", historyRoutes);
+app.use("/subscriptionActions", subscriptionActions);
 
 app.get("/", (req, res) => {
   res.send("🚀 LifeSRE Backend Running");

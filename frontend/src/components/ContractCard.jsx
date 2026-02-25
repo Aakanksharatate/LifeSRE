@@ -8,28 +8,39 @@ function ContractCard({ contract, refresh }) {
   const [recommendation, setRecommendation] = useState(null);
   const [loadingRec, setLoadingRec] = useState(false);
   const [switching, setSwitching] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [status, setStatus] = useState(contract.status || "ACTIVE");
 
   if (!contract) return null;
 
   const isHighRisk = contract.riskLevel === "HIGH";
-  const riskColor = isHighRisk ? "#fca5a5" : contract.riskLevel === "MEDIUM" ? "#fde047" : "#86efac";
-  const riskBackground = isHighRisk ? "rgba(220, 38, 38, 0.15)" : contract.riskLevel === "MEDIUM" ? "rgba(202, 138, 4, 0.15)" : "rgba(22, 163, 74, 0.15)";
-  const riskGlow = isHighRisk ? "0 0 15px rgba(220, 38, 38, 0.4)" : "none";
+
+  const riskColor = isHighRisk
+    ? "#fca5a5"
+    : contract.riskLevel === "MEDIUM"
+    ? "#fde047"
+    : "#86efac";
+
+  const riskBackground = isHighRisk
+    ? "rgba(220,38,38,0.15)"
+    : contract.riskLevel === "MEDIUM"
+    ? "rgba(202,138,4,0.15)"
+    : "rgba(22,163,74,0.15)";
+
+  const riskGlow = isHighRisk
+    ? "0 0 15px rgba(220,38,38,0.4)"
+    : "none";
 
   useEffect(() => {
-    if (!contract.id) return;
-    if (contract.riskLevel === "LOW") return;
+    if (!contract.id || contract.riskLevel === "LOW") return;
 
     async function fetchRecommendation() {
       try {
         setLoadingRec(true);
         const res = await fetch(`${BASE}/recommendation/${contract.id}`);
-        if (!res.ok) throw new Error("Recommendation failed");
-        
         const data = await res.json();
         setRecommendation(data);
-      } catch (err) {
-        console.error("Recommendation fetch failed:", err.message);
+      } catch {
         setRecommendation(null);
       } finally {
         setLoadingRec(false);
@@ -40,190 +51,423 @@ function ContractCard({ contract, refresh }) {
   }, [contract.id, contract.riskLevel]);
 
   async function handleSwitch() {
-    if (!recommendation || !contract.id) return;
+    if (!recommendation || status !== "ACTIVE") return;
+    setSwitching(true);
+    await switchContract(contract.id, recommendation.potentialSavings || 0);
+    if (refresh) await refresh();
+    setSwitching(false);
+  }
 
-    try {
-      setSwitching(true);
-      await switchContract(contract.id, recommendation.potentialSavings || 0);
+  async function handleAction(action) {
+    setActionLoading(true);
+    const res = await fetch(`${BASE}/subscriptionActions/${action}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contractId: contract.id }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      setStatus(action === "paid" ? "PAID" : "CANCELLED");
       if (refresh) await refresh();
-    } catch (err) {
-      console.error("Switch failed:", err.message);
-    } finally {
-      setSwitching(false);
     }
+    setActionLoading(false);
   }
 
   return (
     <>
-      <style>
-        {`
-          @keyframes stripemove {
-            0% { background-position: 0 0; }
-            100% { background-position: 50px 50px; }
-          }
-          @keyframes pulseWarning {
-            0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4); }
-            70% { box-shadow: 0 0 0 8px rgba(220, 38, 38, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
-          }
-        `}
-      </style>
+      <style>{`
+        .glass-shimmer {
+          position: relative;
+          overflow: hidden;
+        }
+        .glass-shimmer::after {
+          content: "";
+          position: absolute;
+          top: 0;
+          left: -120%;
+          width: 60%;
+          height: 100%;
+          background: linear-gradient(
+            to right,
+            transparent,
+            rgba(255,255,255,0.08),
+            transparent
+          );
+          transform: skewX(-25deg);
+          transition: left .8s ease;
+          pointer-events: none;
+        }
+        .glass-shimmer:hover::after {
+          left: 160%;
+        }
+
+        @keyframes stripemove {
+          0% { background-position: 0 0; }
+          100% { background-position: 50px 50px; }
+        }
+        @keyframes pulseWarning {
+          0% { box-shadow: 0 0 0 0 rgba(220,38,38,.4); }
+          70% { box-shadow: 0 0 0 8px rgba(220,38,38,0); }
+          100% { box-shadow: 0 0 0 0 rgba(220,38,38,0); }
+        }
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
 
       <div
         className="glass-shimmer"
         style={{
-          backgroundColor: "rgba(30, 41, 59, 0.4)",
+          backgroundColor: "rgba(30,41,59,0.4)",
           backdropFilter: "blur(12px)",
-          border: `1px solid ${isHighRisk ? 'rgba(248, 113, 113, 0.3)' : 'rgba(255, 255, 255, 0.08)'}`,
-          borderRadius: "20px",
-          padding: "28px",
-          boxShadow: isHighRisk ? "0 10px 30px rgba(220, 38, 38, 0.1)" : "0 10px 30px rgba(0, 0, 0, 0.3)",
-          fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
-          transition: "all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)",
-          position: "relative",
-          overflow: "hidden"
+          border: `1px solid ${
+            isHighRisk
+              ? "rgba(248,113,113,0.3)"
+              : "rgba(255,255,255,0.08)"
+          }`,
+          borderRadius: 20,
+          padding: 28,
+          boxShadow: isHighRisk
+            ? "0 10px 30px rgba(220,38,38,0.1)"
+            : "0 10px 30px rgba(0,0,0,0.3)",
+          transition: "all .4s cubic-bezier(.175,.885,.32,1.275)",
+          fontFamily: "Inter, system-ui",
         }}
         onMouseEnter={(e) => {
           e.currentTarget.style.transform = "scale(1.01)";
-          e.currentTarget.style.borderColor = isHighRisk ? 'rgba(248, 113, 113, 0.6)' : 'rgba(139, 92, 246, 0.5)';
+          e.currentTarget.style.borderColor = isHighRisk
+            ? "rgba(248,113,113,0.6)"
+            : "rgba(139,92,246,0.5)";
         }}
         onMouseLeave={(e) => {
           e.currentTarget.style.transform = "scale(1)";
-          e.currentTarget.style.borderColor = isHighRisk ? 'rgba(248, 113, 113, 0.3)' : 'rgba(255, 255, 255, 0.08)';
+          e.currentTarget.style.borderColor = isHighRisk
+            ? "rgba(248,113,113,0.3)"
+            : "rgba(255,255,255,0.08)";
         }}
       >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "16px" }}>
+        {/* HEADER */}
+        <div style={{ display: "flex", justifyContent: "space-between" }}>
           <div>
-            <div style={{ display: "flex", alignItems: "center", gap: "16px", marginBottom: "8px" }}>
-              <h3 style={{ margin: 0, fontSize: "20px", fontWeight: "700", color: "#f8fafc", letterSpacing: "-0.5px" }}>
+            <div style={{ display: "flex", gap: 16, marginBottom: 8 }}>
+              <h3 style={{ color: "#f8fafc", fontWeight: 700 }}>
                 {contract.vendor}
               </h3>
-              <span
-                style={{
-                  padding: "6px 14px",
-                  borderRadius: "9999px",
-                  backgroundColor: riskBackground,
-                  color: riskColor,
-                  fontWeight: "800",
-                  fontSize: "11px",
-                  textTransform: "uppercase",
-                  letterSpacing: "1px",
-                  border: `1px solid ${riskColor}40`,
-                  boxShadow: riskGlow,
-                  animation: isHighRisk ? "pulseWarning 2s infinite" : "none"
-                }}
-              >
+             <span
+  style={{
+    display: "inline-flex",          // 🔑 REQUIRED
+    alignItems: "center",
+    justifyContent: "center",
+    margin: "10px",                   // ⬅ small horizontal margin
+    padding: "5px 10px",               // ⬅ visibly smaller
+    height: 20,                       // 🔑 hard height control
+    borderRadius: 20,                  // rectangle
+    background: riskBackground,
+    color: riskColor,
+
+    fontWeight: 700,
+    fontSize: 10,
+    lineHeight: "10px",               // 🔑 stops text forcing height
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+
+    border: `1px solid ${riskColor}40`,
+    boxShadow: riskGlow,
+    animation: isHighRisk ? "pulseWarning 2s infinite" : "none",
+  }}
+>
                 {contract.riskLevel}
               </span>
             </div>
-            <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8", display: "flex", alignItems: "center", gap: "6px" }}>
-              <span style={{ color: "#cbd5e1" }}>⏳ Renews in</span> 
-              <strong style={{ color: "#f8fafc", backgroundColor: "rgba(255,255,255,0.1)", padding: "2px 8px", borderRadius: "6px" }}>{contract.daysLeft} days</strong>
+
+            <p style={{ color: "#94a3b8" }}>
+              ⏳ Renews in{" "}
+              <strong
+                style={{
+                  color: "#f8fafc",
+                  background: "rgba(255,255,255,.1)",
+                  padding: "2px 8px",
+                  borderRadius: 6,
+                }}
+              >
+                {contract.daysLeft} days
+              </strong>
             </p>
           </div>
-          
+
           <div style={{ textAlign: "right" }}>
-            <p style={{ margin: 0, fontSize: "13px", color: "#64748b", textTransform: "uppercase", letterSpacing: "1px", fontWeight: "600", marginBottom: "4px" }}>Current Rate</p>
-            <strong style={{ color: "#f8fafc", fontSize: "24px", fontWeight: "800", letterSpacing: "-0.5px" }}>₹{contract.renewalAmount}</strong>
+            <p
+              style={{
+                color: "#64748b",
+                fontSize: 13,
+                textTransform: "uppercase",
+                letterSpacing: 1,
+              }}
+            >
+              Current Rate
+            </p>
+            <strong style={{ color: "#f8fafc", fontSize: 24 }}>
+              ₹{contract.renewalAmount}
+            </strong>
           </div>
         </div>
 
-        {/* ---------------- Recommendation UI ---------------- */}
+        {/* LOADING */}
         {loadingRec && (
-          <div style={{ display: "flex", alignItems: "center", gap: "12px", color: "#a78bfa", fontSize: "14px", fontWeight: "600", marginTop: "24px", padding: "16px", backgroundColor: "rgba(139, 92, 246, 0.1)", borderRadius: "12px", border: "1px solid rgba(139, 92, 246, 0.2)" }}>
-            <span style={{ width: "16px", height: "16px", border: "2px solid rgba(168, 85, 247, 0.3)", borderTopColor: "#a78bfa", borderRadius: "50%", animation: "spin 1s linear infinite" }} />
+          <div
+            style={{
+              marginTop: 24,
+              padding: 16,
+              display: "flex",
+              gap: 12,
+              alignItems: "center",
+              background: "rgba(139,92,246,.1)",
+              borderRadius: 12,
+              border: "1px solid rgba(139,92,246,.2)",
+              color: "#a78bfa",
+              fontWeight: 600,
+            }}
+          >
+            <span
+              style={{
+                width: 16,
+                height: 16,
+                border: "2px solid rgba(168,85,247,.3)",
+                borderTopColor: "#a78bfa",
+                borderRadius: "50%",
+                animation: "spin 1s linear infinite",
+              }}
+            />
             Running price arbitrage algorithms...
           </div>
         )}
 
-        {recommendation && recommendation.potentialSavings > 0 && (
+        {/* RECOMMENDATION (EXACT) */}
+        {recommendation?.potentialSavings > 0 && (
           <div
             style={{
-              background: "linear-gradient(135deg, rgba(22, 163, 74, 0.1) 0%, rgba(6, 78, 59, 0.3) 100%)",
-              border: "1px solid rgba(74, 222, 128, 0.3)",
-              borderRadius: "16px",
-              padding: "24px",
+              marginTop: 24,
+              padding: 24,
+              borderRadius: 16,
+              background:
+                "linear-gradient(135deg, rgba(22,163,74,.1), rgba(6,78,59,.3))",
+              border: "1px solid rgba(74,222,128,.3)",
               display: "flex",
               justifyContent: "space-between",
-              alignItems: "center",
-              gap: "24px",
-              marginTop: "24px",
+              gap: 24,
               flexWrap: "wrap",
               position: "relative",
-              overflow: "hidden"
+              overflow: "hidden",
             }}
           >
-            {/* Background glowing orb for the savings box */}
-            <div style={{ position: "absolute", top: "-50%", left: "-10%", width: "200px", height: "200px", background: "radial-gradient(circle, rgba(74,222,128,0.15) 0%, transparent 70%)", filter: "blur(20px)", pointerEvents: "none" }} />
+            {/* green glow orb */}
+            <div
+              style={{
+                position: "absolute",
+                top: "-50%",
+                left: "-10%",
+                width: 200,
+                height: 200,
+                background:
+                  "radial-gradient(circle, rgba(74,222,128,.15), transparent 70%)",
+                filter: "blur(20px)",
+              }}
+            />
 
             <div style={{ position: "relative", zIndex: 1 }}>
-              <p style={{ margin: "0 0 4px 0", color: "#86efac", fontSize: "13px", textTransform: "uppercase", letterSpacing: "1px", fontWeight: "700" }}>Market Arbitrage Found</p>
-              <h4 style={{ margin: "0 0 12px 0", color: "#4ade80", fontSize: "28px", fontWeight: "800", letterSpacing: "-1px", textShadow: "0 0 20px rgba(74, 222, 128, 0.4)" }}>
-                Save ₹<CountUp end={recommendation.potentialSavings} duration={1.5} separator="," />
-              </h4>
-              
-              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                <span style={{ color: "#d1fae5", fontSize: "14px", backgroundColor: "rgba(16, 185, 129, 0.2)", padding: "4px 10px", borderRadius: "8px", border: "1px solid rgba(16, 185, 129, 0.3)" }}>
-                  Alternative available: <strong>₹{recommendation.bestAlternative}</strong>
-                </span>
-              </div>
+              <p
+                style={{
+                  color: "#86efac",
+                  fontSize: 13,
+                  textTransform: "uppercase",
+                  fontWeight: 700,
+                }}
+              >
+                Market Arbitrage Found
+              </p>
 
-              <div style={{ marginTop: "16px", width: "100%", maxWidth: "300px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", color: "#6ee7b7", marginBottom: "8px", fontWeight: "700", textTransform: "uppercase", letterSpacing: "1px" }}>
+              <h4
+                style={{
+                  color: "#4ade80",
+                  fontSize: 28,
+                  fontWeight: 800,
+                  textShadow: "0 0 20px rgba(74,222,128,.4)",
+                }}
+              >
+                Save ₹
+                <CountUp
+                  end={recommendation.potentialSavings}
+                  duration={1.5}
+                  separator=","
+                />
+              </h4>
+
+              {/* confidence bar */}
+              <div style={{ marginTop: 16, maxWidth: 280 }}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    fontSize: 11,
+                    color: "#6ee7b7",
+                    fontWeight: 700,
+                    marginBottom: 8,
+                    textTransform: "uppercase",
+                  }}
+                >
                   <span>Confidence Level</span>
                   <span>{recommendation.confidence || "Medium"}</span>
                 </div>
-                <div style={{ height: "8px", backgroundColor: "rgba(0,0,0,0.4)", borderRadius: "999px", overflow: "hidden", border: "1px solid rgba(255,255,255,0.05)", boxShadow: "inset 0 2px 4px rgba(0,0,0,0.5)" }}>
+                <div
+                  style={{
+                    height: 2,
+                    background: "rgba(0,0,0,.4)",
+                    borderRadius: 999,
+                    overflow: "hidden",
+                  }}
+                >
                   <div
                     style={{
                       height: "100%",
-                      width: recommendation.confidence === "High" ? "92%" : "65%",
-                      backgroundColor: recommendation.confidence === "High" ? "#10b981" : "#f59e0b",
-                      backgroundImage: "linear-gradient(45deg, rgba(255,255,255,0.15) 25%, transparent 25%, transparent 50%, rgba(255,255,255,0.15) 50%, rgba(255,255,255,0.15) 75%, transparent 75%, transparent)",
+                      width:
+                        recommendation.confidence === "High"
+                          ? "92%"
+                          : "65%",
+                      background:
+                        recommendation.confidence === "High"
+                          ? "#10b981"
+                          : "#f59e0b",
+                      backgroundImage:
+                        "linear-gradient(45deg, rgba(255,255,255,.15) 25%, transparent 25%, transparent 50%, rgba(255,255,255,.15) 50%, rgba(255,255,255,.15) 75%, transparent 75%, transparent)",
                       backgroundSize: "20px 20px",
                       animation: "stripemove 2s linear infinite",
-                      transition: "width 1s cubic-bezier(0.4, 0, 0.2, 1)",
-                      boxShadow: "0 0 10px rgba(16, 185, 129, 0.5)"
                     }}
                   />
                 </div>
               </div>
             </div>
 
-            <button
-              onClick={handleSwitch}
-              disabled={switching}
-              style={{
-                background: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
-                color: "white",
-                border: "1px solid rgba(96, 165, 250, 0.5)",
-                padding: "14px 28px",
-                borderRadius: "12px",
-                fontWeight: "700",
-                fontSize: "15px",
-                cursor: switching ? "not-allowed" : "pointer",
-                opacity: switching ? 0.7 : 1,
-                whiteSpace: "nowrap",
-                boxShadow: "0 10px 20px -5px rgba(37, 99, 235, 0.5), inset 0 1px 0 rgba(255,255,255,0.2)",
-                transition: "all 0.2s ease",
-                position: "relative",
-                zIndex: 1,
-                transform: switching ? "scale(0.98)" : "scale(1)"
-              }}
-              onMouseEnter={(e) => { if(!switching) { e.currentTarget.style.transform = "scale(1.05)"; e.currentTarget.style.boxShadow = "0 15px 25px -5px rgba(37, 99, 235, 0.6), inset 0 1px 0 rgba(255,255,255,0.2)"; } }}
-              onMouseLeave={(e) => { if(!switching) { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.boxShadow = "0 10px 20px -5px rgba(37, 99, 235, 0.5), inset 0 1px 0 rgba(255,255,255,0.2)"; } }}
-            >
-              {switching ? (
-                <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                  <span style={{ width: "12px", height: "12px", border: "2px solid #fff", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 1s linear infinite" }} />
-                  Executing...
-                </span>
-              ) : (
-                "Execute Switch"
-              )}
-            </button>
-          </div>
+           <button
+  onClick={handleSwitch}
+  disabled={switching || status !== "ACTIVE"}
+  style={{
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    margin: "65px",
+    height: 45,
+    padding: "10px 25px",
+    borderRadius: 30,
+
+    background: "rgba(11, 8, 50, 0.35)",
+    backdropFilter: "blur(14px)",
+    WebkitBackdropFilter: "blur(14px)",
+    border: "1px solid rgba(255,255,255,0.18)",
+
+    color: "#e5e7eb",
+    fontWeight: 700,
+    fontSize: 13,
+    lineHeight: "20px",
+
+    cursor: "pointer",
+    boxShadow: `
+      inset 0 1px 1px rgba(255,255,255,0.15),
+      0 10px 25px rgba(0,0,0,0.35)
+    `,
+    transform: switching ? "scale(.97)" : "scale(1)",
+    transition: "all .2s ease",
+  }}
+>
+  {switching ? "Executing…" : "Execute Switch"}
+</button>         </div>
         )}
+
+       {/* ACTIONS */}
+{status === "ACTIVE" ? (
+  <div style={{ display: "flex", gap: 14, marginTop: 22 }}>
+    {/* PAID */}
+    <button
+      onClick={() => handleAction("paid")}
+      disabled={actionLoading}
+      style={{
+        flex: 1,
+        height: 42,
+        borderRadius: 14,
+
+        background: "rgba(22,163,74,0.18)",
+        backdropFilter: "blur(12px)",
+        WebkitBackdropFilter: "blur(12px)",
+        border: "1px solid rgba(74,222,128,0.35)",
+
+        color: "#dcfce7",
+        fontWeight: 700,
+        fontSize: 13,
+
+        cursor: "pointer",
+        boxShadow: `
+          inset 0 1px 1px rgba(255,255,255,0.15),
+          0 8px 20px rgba(0,0,0,0.35)
+        `,
+        transition: "all .2s ease",
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.transform = "translateY(-1px)";
+        e.currentTarget.style.boxShadow =
+          "0 12px 30px rgba(22,163,74,0.45)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.transform = "translateY(0)";
+        e.currentTarget.style.boxShadow =
+          "inset 0 1px 1px rgba(255,255,255,0.15), 0 8px 20px rgba(0,0,0,0.35)";
+      }}
+    >
+      ✓ Paid
+    </button>
+
+    {/* CANCEL */}
+    <button
+      onClick={() => handleAction("cancel")}
+      disabled={actionLoading}
+      style={{
+        flex: 1,
+        height: 42,
+        borderRadius: 14,
+
+        background: "rgba(220,38,38,0.18)",
+        backdropFilter: "blur(12px)",
+        WebkitBackdropFilter: "blur(12px)",
+        border: "1px solid rgba(248,113,113,0.35)",
+
+        color: "#fee2e2",
+        fontWeight: 700,
+        fontSize: 13,
+
+        cursor: "pointer",
+        boxShadow: `
+          inset 0 1px 1px rgba(255,255,255,0.15),
+          0 8px 20px rgba(0,0,0,0.35)
+        `,
+        transition: "all .2s ease",
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.transform = "translateY(-1px)";
+        e.currentTarget.style.boxShadow =
+          "0 12px 30px rgba(220,38,38,0.45)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.transform = "translateY(0)";
+        e.currentTarget.style.boxShadow =
+          "inset 0 1px 1px rgba(255,255,255,0.15), 0 8px 20px rgba(0,0,0,0.35)";
+      }}
+    >
+      ✕ Cancel
+    </button>
+  </div>
+) : (
+  <p style={{ marginTop: 16, color: "#94a3b8" }}>
+    Status: <strong>{status}</strong>
+  </p>
+)}
       </div>
     </>
   );
